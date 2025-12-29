@@ -1,5 +1,5 @@
 from shiny import ui, module, render
-from shared import df_raw
+from shared import df
 
 @module.ui
 def page_data_ui():
@@ -7,7 +7,7 @@ def page_data_ui():
         "데이터 요약",
         ui.h3("데이터 요약"),
         ui.card(
-            ui.card_header("데이터 미리보기 (head)"),
+            ui.card_header("정제 데이터 미리보기 (head)"),
             ui.output_data_frame("head_tbl"),
         ),
     )
@@ -16,4 +16,4 @@ def page_data_ui():
 def page_data_server(input, output, session):
     @render.data_frame
     def head_tbl():
-        return df_raw.head(20)
+        return df.head(20)
