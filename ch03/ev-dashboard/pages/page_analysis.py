@@ -23,7 +23,7 @@ def page_analysis_ui():
                 col_widths=(6, 6),
             ),
             ui.card(
-                ui.card_header("테이블 영역(3-8에서 구현)"),
+                ui.card_header("테이블 영역"),
                 ui.p("DataGrid 출력 위치"),
             ),
         ),
