@@ -1,10 +1,14 @@
+from datetime import date
+
 from shiny import ui, module, reactive, render
 from shared import df
 
-# 1-1) 차량유형 리스트 정의
+import plotly.express as px
+from shinywidgets import output_widget, render_widget
+
 TYPE_COLS = ["승용", "승합", "화물", "특수"]
 
-# 2-1) 선택지 유틸 함수
+
 def _choices(col: str):
     return sorted(df[col].dropna().unique().tolist())
 
@@ -14,17 +18,12 @@ def page_analysis_ui():
     return ui.nav_panel(
         "조건별 분석",
         ui.layout_sidebar(
-
-            # 1-2) 사이드바 입력 컴포넌트 추가
             ui.sidebar(
                 ui.h4("조건 선택"),
-
                 ui.input_selectize("sido", "시도", choices=["전체"]),
                 ui.input_selectize("sigungu", "시군구", choices=["전체"]),
                 ui.input_selectize("purpose", "용도별", choices=["전체"]),
-
                 ui.hr(),
-
                 ui.input_checkbox_group(
                     "vtypes",
                     "차량유형(합계에 포함)",
@@ -32,40 +31,36 @@ def page_analysis_ui():
                     selected=TYPE_COLS,
                     inline=True,
                 ),
-
                 ui.input_action_button("apply", "조건 적용", class_="btn-primary", width="100%"),
+
+                # (3-8) 3) CSV 다운로드 버튼 구현
+                ui.download_button(
+                    "download_csv",
+                    "CSV 다운로드",
+                    class_="btn-outline-secondary",
+                    width="100%",
+                ),
 
                 title="입력",
             ),
-
             ui.h3("조건별 분석"),
-
             ui.layout_columns(
                 ui.card(
-                    ui.card_header("KPI 영역"),
-
-                    # 4) KPI value_box 출력 자리 추가
                     ui.layout_columns(
-                        ui.value_box(
-                            title="필터 후 행 수",
-                            value=ui.output_text("kpi_rows"),
-                        ),
-                        ui.value_box(
-                            title="선택합 총합",
-                            value=ui.output_text("kpi_sum_selected"),
-                        ),
+                        ui.value_box("필터 후 행 수", ui.output_text("kpi_rows")),
+                        ui.value_box("선택합 총합", ui.output_text("kpi_sum_selected")),
                         col_widths=(6, 6),
                     ),
                 ),
                 ui.card(
-                    ui.card_header("그래프 영역"),
-                    ui.p("Plotly 그래프 출력 위치"),
+                    # (3-8) 1) 그래프 영역에 Plotly 출력 연결
+                    output_widget("p_type_bar", height="420px"),
                 ),
                 col_widths=(6, 6),
             ),
             ui.card(
-                ui.card_header("테이블 영역"),
-                ui.p("DataGrid 출력 위치"),
+                # (3-8) 2) 테이블 영역에 DataGrid 출력 연결
+                ui.output_data_frame("tbl_filtered"),
             ),
         ),
     )
@@ -74,7 +69,6 @@ def page_analysis_ui():
 @module.server
 def page_analysis_server(input, output, session):
 
-    # 2-1) 선택지 초기화(시도, 용도별)
     @reactive.effect
     def _init_choices():
         ui.update_selectize(
@@ -90,7 +84,6 @@ def page_analysis_server(input, output, session):
             session=session,
         )
 
-    # 2-2) 시도 선택 시 시군구 선택지 갱신(종속)
     @reactive.effect
     def _sync_sigungu_choices():
         sido = input.sido()
@@ -109,29 +102,35 @@ def page_analysis_server(input, output, session):
             session=session,
         )
 
-    # 3) filtered_df() 구현(초기값 포함 + 버튼 클릭 시 갱신)
     @reactive.calc
     @reactive.event(input.apply, ignore_none=False)
     def filtered_df():
+        with reactive.isolate():
+            sido = input.sido()
+            sigungu = input.sigungu()
+            purpose = input.purpose()
+            selected = list(input.vtypes() or TYPE_COLS)
+
         dat = df
 
-        if input.sido() and input.sido() != "전체":
-            dat = dat[dat["시도"] == input.sido()]
+        if sido and sido != "전체":
+            dat = dat[dat["시도"] == sido]
 
-        if input.sigungu() and input.sigungu() != "전체":
-            dat = dat[dat["시군구"] == input.sigungu()]
+        if sigungu and sigungu != "전체":
+            dat = dat[dat["시군구"] == sigungu]
 
-        if input.purpose() and input.purpose() != "전체":
-            dat = dat[dat["용도별"] == input.purpose()]
+        if purpose and purpose != "전체":
+            dat = dat[dat["용도별"] == purpose]
 
-        selected = list(input.vtypes() or TYPE_COLS)
+        base_cols = ["시도", "시군구", "연료별", "용도별"]
+        keep_cols = [c for c in base_cols if c in dat.columns]
+        type_cols = [c for c in selected if c in dat.columns]
 
-        dat = dat.copy()
-        dat["선택합"] = dat[selected].sum(axis=1)
+        dat = dat[keep_cols + type_cols].copy()
+        dat["선택합"] = dat[type_cols].sum(axis=1) if type_cols else 0
 
         return dat.reset_index(drop=True)
 
-    # 4) 검증용 KPI 출력
     @output
     @render.text
     def kpi_rows():
@@ -141,3 +140,43 @@ def page_analysis_server(input, output, session):
     @render.text
     def kpi_sum_selected():
         return f"{filtered_df()['선택합'].sum():,}"
+
+    # (3-8) 1) Plotly 막대그래프 Server 출력 추가
+    @output
+    @render_widget
+    def p_type_bar():
+        dat = filtered_df()
+
+        type_cols = [c for c in TYPE_COLS if c in dat.columns]
+        totals = dat[type_cols].sum().reset_index()
+        totals.columns = ["차량유형", "등록대수"]
+
+        fig = px.bar(
+            totals,
+            x="차량유형",
+            y="등록대수",
+            color="차량유형",
+            title="차량유형별 등록대수(선택 항목만)",
+        )
+        fig.update_layout(margin=dict(l=10, r=10, t=50, b=10), showlegend=False)
+        return fig
+
+    # (3-8) 2) DataGrid Server 출력 추가(렌더링만)
+    @output
+    @render.data_frame
+    def tbl_filtered():
+        return render.DataGrid(
+            filtered_df(),
+            width="100%",
+            height="420px",
+            filters=True,
+        )
+
+    # (3-8) 3) CSV 다운로드 Server 구현
+    @output(id="download_csv")
+    @render.download(
+        filename=lambda: f"filtered_{date.today().isoformat()}.csv",
+        encoding="utf-8-sig",
+    )
+    def download_csv():
+        yield filtered_df().to_csv(index=False)
