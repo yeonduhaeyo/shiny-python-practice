@@ -120,15 +120,11 @@ print(f" - 제거 전: {before}행")
 print(f" - 제거 후: {after}행")
 print(f" - 제거된 행(좌표 결측): {before - after}행")
 
-print("\n[13] choropleth 조인 키(sgg_key)를 생성합니다.")
-df["sgg_key"] = df["시도"].astype(str).str.strip() + " " + df["시군구"].astype(str).str.strip()
-print(" - sgg_key 생성 완료")
-
 OUT_DIR = APP_DIR / "data" / "processed"
 OUT_CSV = OUT_DIR / "nursery_clean.csv"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-print("\n[14] 정제 CSV 파일을 저장합니다.")
+print("\n[13] 정제 CSV 파일을 저장합니다.")
 print(f" - 저장 경로: {OUT_CSV}")
 
 df.to_csv(OUT_CSV, index=False, encoding="utf-8-sig")
