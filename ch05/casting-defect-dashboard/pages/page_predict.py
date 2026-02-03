@@ -104,7 +104,7 @@ def page_layout():
             ui.output_ui("pred_result"),
             ui.input_action_button(
                 "btn_predict",
-                "▶  예측 실행",
+                "예측 실행",
                 class_="btn-lg btn-block w-100 mt-2",
             ),
             class_="mb-3",
@@ -254,7 +254,7 @@ def page_predict_server(input, output, session):
     def input_summary_grid():
         err = err_state.get()
         if err:
-            df = pd.DataFrame({"메시지": [f"⚠️ 입력/예측 실패: {err}"]})
+            df = pd.DataFrame({"메시지": [f"입력/예측 실패: {err}"]})
             return render.DataGrid(df, width="100%", height=260, summary=False, filters=False)
 
         X = X_input_state.get()
