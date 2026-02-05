@@ -1,0 +1,10 @@
+shiny
+shinyswatch
+pandas
+numpy
+plotly
+scikit-learn
+imblearn
+lightgbm
+shinywidgets
+joblib
