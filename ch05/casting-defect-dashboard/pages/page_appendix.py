@@ -1,238 +1,212 @@
-# pages/page_appendix.py
-from pathlib import Path
-import json
-
 import pandas as pd
 from shiny import ui, module, render
 
 import shared
 
+TARGET_COL = "passorfail"
+BEST_BY = "valid_f1"
 
-# =========================
-# tiny helpers (minimal)
-# =========================
-def _overview_df(df: pd.DataFrame) -> pd.DataFrame:
-    total_cells = int(df.shape[0] * df.shape[1])
-    miss_cells = int(df.isna().sum().sum())
-    miss_ratio = round(miss_cells / total_cells, 6) if total_cells else 0.0
-    return pd.DataFrame(
-        [
-            {"item": "shape", "value": f"{df.shape[0]} × {df.shape[1]}"},
-            {"item": "missing_cells", "value": miss_cells},
-            {"item": "missing_ratio", "value": miss_ratio},
-        ]
-    )
+FEATURE_COLS = [
+    "count", "mold_code", "working", "tryshot_signal",
+    "facility_operation_cycleTime", "production_cycletime",
+    "molten_volume", "molten_temp", "EMS_operation_time",
+    "sleeve_temperature", "cast_pressure", "biscuit_thickness",
+    "low_section_speed", "high_section_speed", "physical_strength",
+    "upper_mold_temp1", "upper_mold_temp2",
+    "lower_mold_temp1", "lower_mold_temp2",
+    "Coolant_temperature",
+]
+CATEGORICAL_COLS = ["mold_code", "EMS_operation_time", "working", "tryshot_signal"]
+FLAG_1449_COLS = [
+    "sleeve_temperature", "Coolant_temperature",
+    "upper_mold_temp1", "upper_mold_temp2",
+    "lower_mold_temp1", "lower_mold_temp2",
+]
 
-
-def _target_df(df: pd.DataFrame, target_col: str = "passorfail") -> pd.DataFrame:
-    # KeyError('class') 방지: 항상 class/count/ratio 컬럼으로 만든다
-    if target_col not in df.columns:
-        return pd.DataFrame([{"class": f"{target_col} not found", "count": 0, "ratio": 0.0}])
-
-    vc = df[target_col].value_counts(dropna=False)
-    out = pd.DataFrame({"class": vc.index.astype(str), "count": vc.values.astype(int)})
-    out["ratio"] = (out["count"] / len(df)).round(4)
-    return out
-
-
-def _na_top_df(df: pd.DataFrame, top_n: int = 10) -> pd.DataFrame:
-    s = df.isna().sum().sort_values(ascending=False)
-    s = s[s > 0].head(top_n)
-    if len(s) == 0:
-        return pd.DataFrame([{"column": "남은 결측 없음", "na_count": 0}])
-    return pd.DataFrame({"column": s.index.astype(str), "na_count": s.values.astype(int)})
-
-
-def _load_summary():
-    app_dir = Path(__file__).resolve().parents[1]  # pages/ -> app root
-    p = app_dir / "data" / "preprocess_summary.json"
-    if not p.exists():
-        return None, "preprocess_summary.json 없음 → preprocessing.py 실행 후 생성됩니다."
-
+def fmt3(x):
     try:
-        d = json.loads(p.read_text(encoding="utf-8"))
+        return f"{float(x):.3f}"
     except Exception:
-        return None, "preprocess_summary.json 파싱 실패 → 파일을 직접 확인하세요."
-
-    # 사람이 읽기 좋은 “문장 요약”
-    raw_shape = d.get("raw_shape", ["?", "?"])
-    clean_shape = d.get("clean_shape", ["?", "?"])
-    removed = int(d.get("removed_bad_row_id_19327", 0))
-
-    flag = d.get("flag_1449_to_na", {}) or {}
-    flag_total = sum(int(v) for v in flag.values()) if isinstance(flag, dict) else 0
-
-    molten_bad = int(d.get("molten_temp_le_100_to_na", 0))
-    prod_fix = int(d.get("production_cycletime_zero_fix", 0))
-
-    fills = d.get("fills", {}) or {}
-    tryshot_fill = int(fills.get("tryshot_signal_na_to_A", 0))
-    vol_fill = int(fills.get("molten_volume_na_to_minus1", 0))
-
-    dropped = d.get("dropped_columns", []) or []
-    dropped_txt = ", ".join(dropped) if dropped else "-"
-
-    text = "\n".join(
-        [
-            f"- raw → clean: {raw_shape[0]}×{raw_shape[1]} → {clean_shape[0]}×{clean_shape[1]}",
-            f"- 결측 과다 단일행 제거(id=19327): {removed}건",
-            f"- 플래그 1449 → NaN: 총 {flag_total}셀",
-            f"- molten_temp ≤ 100 → NaN: {molten_bad}건",
-            f"- production_cycletime==0 보정: {prod_fix}건",
-            f"- tryshot_signal 결측 → 'A': {tryshot_fill}건",
-            f"- molten_volume 결측/비수치 → -1: {vol_fill}건",
-            f"- drop columns: {dropped_txt}",
-        ]
-    )
-
-    # 요약을 표로도 같이 제공(간단히)
-    summary_tbl = pd.DataFrame(
-        [
-            {"metric": "raw_shape", "value": f"{raw_shape[0]}×{raw_shape[1]}"},
-            {"metric": "clean_shape", "value": f"{clean_shape[0]}×{clean_shape[1]}"},
-            {"metric": "removed(id=19327)", "value": removed},
-            {"metric": "flag_1449_to_na(cells)", "value": flag_total},
-            {"metric": "molten_temp<=100_to_na(rows)", "value": molten_bad},
-            {"metric": "prod_cycletime_zero_fix(rows)", "value": prod_fix},
-            {"metric": "tryshot_na_to_A(rows)", "value": tryshot_fill},
-            {"metric": "molten_volume_na_to_-1(rows)", "value": vol_fill},
-        ]
-    )
-
-    return summary_tbl, text
+        return "-"
 
 
-# =========================
-# UI
-# =========================
 @module.ui
 def page_appendix_ui():
     return ui.nav_panel(
         "부록",
-        ui.h3("부록"),
-        ui.p("이번 레슨에서는 Raw(train.csv)와 1차 정제(train_clean.csv)를 비교하고, 전처리 요약을 별도 탭에서 확인합니다."),
-        ui.navset_tab(
-            # 탭 1) Raw vs Clean 비교 (한 화면에서 좌우 비교)
-            ui.nav_panel(
-                "Raw vs Clean",
-                ui.h4("요약(overview)"),
-                ui.layout_columns(
-                    ui.card(ui.card_header("Raw"), ui.output_data_frame("raw_overview_tbl")),
-                    ui.card(ui.card_header("Clean"), ui.output_data_frame("clean_overview_tbl")),
-                    col_widths=[6, 6],
-                ),
-                ui.h4("타깃 분포(passorfail)"),
-                ui.layout_columns(
-                    ui.card(ui.card_header("Raw"), ui.output_data_frame("raw_target_tbl")),
-                    ui.card(ui.card_header("Clean"), ui.output_data_frame("clean_target_tbl")),
-                    col_widths=[6, 6],
-                ),
-                ui.h4("결측 Top 10"),
-                ui.layout_columns(
-                    ui.card(ui.card_header("Raw"), ui.output_data_frame("raw_na_tbl")),
-                    ui.card(ui.card_header("Clean"), ui.output_data_frame("clean_na_tbl")),
-                    col_widths=[6, 6],
-                ),
-                ui.h4("head(12)"),
-                ui.layout_columns(
-                    ui.card(ui.card_header("Raw"), ui.output_data_frame("raw_head_tbl")),
-                    ui.card(ui.card_header("Clean"), ui.output_data_frame("clean_head_tbl")),
-                    col_widths=[6, 6],
-                ),
+        ui.div(
+            {"class": "container-fluid p-0"},
+
+            ui.h4({"class": "mb-3"}, "전처리 요약"),
+            ui.layout_columns(
+                ui.output_ui("before_after_ui"),
+                col_widths=[12],
+                class_="mb-3",
             ),
-            # 탭 2) 전처리 요약
-            ui.nav_panel(
-                "전처리 요약",
-                ui.card(
-                    ui.card_header("preprocess_summary.json (요약)"),
-                    ui.output_text_verbatim("summary_txt"),
-                ),
-                ui.layout_columns(
-                    ui.card(
-                        ui.card_header("요약 표"),
-                        ui.output_data_frame("summary_tbl"),
-                    ),
-                    ui.card(
-                        ui.card_header("남은 결측 Top 10 (Clean)"),
-                        ui.output_data_frame("clean_na_tbl2"),
-                    ),
-                    col_widths=[6, 6],
-                ),
-                ui.p("※ 모델 리포트(성능/지표/혼동행렬)는 5-3에서 이 탭에 확장합니다."),
+            ui.card(ui.card_header("전처리 규칙 상세"), ui.output_ui("preprocess_rules_ui"), class_="mb-4"),
+
+            ui.hr({"class": "my-4"}),
+
+            ui.h4({"class": "mb-3"}, "모델 성능 리포트"),
+            ui.layout_columns(
+                ui.output_ui("best_model_box"),
+                ui.output_ui("valid_f1_box"),
+                ui.output_ui("test_f1_box"),
+                ui.output_ui("test_acc_box"),
+                col_widths=[3, 3, 3, 3],
+                class_="mb-3",
             ),
+            ui.card(ui.card_header("모델 비교 결과"), ui.output_ui("compare_tbl_ui"), class_="mb-3"),
         ),
     )
 
 
-# =========================
-# Server
-# =========================
 @module.server
 def page_appendix_server(input, output, session):
-    # Raw / Clean 객체는 shared에서 제공한다고 가정
-    df_raw = shared.df_raw
-    df_clean = shared.df_clean
+    preprocess_summary = shared.preprocess_summary
+    compare_df = shared.model_compare_results
+    best_name = shared.best_model_name
 
-    # ----- Raw vs Clean: overview
+    # helpers (server-local)
+    def preprocess_rules_items():
+        dropped = (preprocess_summary or {}).get("dropped_columns", []) or []
+        return [
+            ("1. 스키마 고정",
+             f"입력 컬럼을 FEATURE_COLS {len(FEATURE_COLS)}개로 고정하고, 누락 컬럼은 NaN으로 생성해 일관성을 유지합니다."),
+            ("2. 센서 오류 플래그",
+             f"값이 1449인 경우 오류로 간주해 NaN 처리합니다. 대상: {', '.join(FLAG_1449_COLS)}"),
+            ("3. 용탕 온도 비정상",
+             "molten_temp ≤ 100이면 측정 오류로 판단해 NaN 처리합니다."),
+            ("4. 생산 사이클타임 보정",
+             "production_cycletime==0이면 facility_operation_cycleTime으로 대체합니다."),
+            ("5. 트라이샷 결측",
+             "tryshot_signal 결측은 기본값 'A'로 대체합니다(입력 누락 방어)."),
+            ("6. 용탕 부피 결측",
+             "molten_volume 결측/비수치 값은 -1로 대체합니다(결측 신호 반영)."),
+            ("7. 범주형 타입 고정",
+             f"범주형은 string으로 변환해 인코딩 안정성을 확보합니다. 대상: {', '.join(CATEGORICAL_COLS)}"),
+            ("8. 제거된 컬럼",
+             f"전처리 과정에서 제거된 컬럼: {len(dropped)}개 → {', '.join(dropped) if dropped else '-'}"),
+        ]
+
+    def best_row_from_compare(df: pd.DataFrame | None, model_name: str):
+        if df is None or df.empty:
+            return None
+        if "model" not in df.columns:
+            return None
+        m = df["model"].astype(str) == str(model_name)
+        if not m.any():
+            return None
+        return df.loc[m].iloc[0]
+
+    def get_metric(row, col):
+        if row is None:
+            return "-"
+        if col not in row.index:
+            return "-"
+        return fmt3(row[col])
+
+    def compare_table_html(df: pd.DataFrame | None):
+        if df is None:
+            return ui.p({"class": "text-muted mb-0"}, "모델 비교 결과 파일이 없습니다.")
+
+        cols = [c for c in [
+            "model",
+            "valid_f1", "valid_accuracy", "valid_precision", "valid_recall",
+            "test_f1", "test_accuracy", "test_precision", "test_recall",
+        ] if c in df.columns]
+
+        out = df[cols].copy() if cols else df.copy()
+        out = out.head(10)
+
+        for c in out.columns:
+            if c == "model":
+                continue
+            if pd.api.types.is_numeric_dtype(out[c]):
+                out[c] = out[c].map(lambda v: fmt3(v) if pd.notna(v) else "-")
+
+        col_kr = {
+            "model": "모델",
+            "valid_f1": "검증 F1",
+            "valid_accuracy": "검증 정확도",
+            "valid_precision": "검증 정밀도",
+            "valid_recall": "검증 재현율",
+            "test_f1": "테스트 F1",
+            "test_accuracy": "테스트 정확도",
+            "test_precision": "테스트 정밀도",
+            "test_recall": "테스트 재현율",
+        }
+
+        headers = [col_kr.get(c, c) for c in out.columns]
+        rows = out.astype(str).values.tolist()
+
+        return ui.tags.table(
+            {"class": "table table-sm table-hover mb-0"},
+            ui.tags.thead({"class": "table-light"}, ui.tags.tr(*[ui.tags.th(h) for h in headers])),
+            ui.tags.tbody(*[ui.tags.tr(*[ui.tags.td(c) for c in r]) for r in rows]),
+        )
+
+    # ---- precompute ----
+    best_row = best_row_from_compare(compare_df, best_name)
+
+    # outputs
     @output
-    @render.data_frame
-    def raw_overview_tbl():
-        return _overview_df(df_raw)
+    @render.ui
+    def before_after_ui():
+        if not preprocess_summary:
+            return ui.p({"class": "text-muted mb-0"}, "preprocess_summary.json 파일이 없어 전처리 전/후 통계를 확인할 수 없습니다.")
+
+        raw_shape = preprocess_summary.get("raw_shape")
+        clean_shape = preprocess_summary.get("clean_shape")
+        if not raw_shape or not clean_shape or len(raw_shape) != 2 or len(clean_shape) != 2:
+            return ui.p({"class": "text-muted mb-0"}, "raw_shape/clean_shape 정보가 없어 전처리 전/후 통계를 확인할 수 없습니다.")
+
+        before_info = f"{raw_shape[0]:,}행 × {raw_shape[1]}컬럼"
+        after_info = f"{clean_shape[0]:,}행 × {clean_shape[1]}컬럼"
+
+        try:
+            row_delta = int(clean_shape[0]) - int(raw_shape[0])
+            col_delta = int(clean_shape[1]) - int(raw_shape[1])
+            delta_info = f"행: {row_delta:+,} / 컬럼: {col_delta:+}"
+        except Exception:
+            delta_info = "-"
+
+        return ui.layout_columns(
+            ui.value_box("전처리 전", before_info, "원본 데이터", theme="bg-light"),
+            ui.value_box("전처리 후", after_info, "최종 학습 데이터", theme="bg-light"),
+            ui.value_box("변화량", delta_info, "전처리 효과", theme="bg-light"),
+            col_widths=[4, 4, 4],
+        )
 
     @output
-    @render.data_frame
-    def clean_overview_tbl():
-        return _overview_df(df_clean)
-
-    # ----- target
-    @output
-    @render.data_frame
-    def raw_target_tbl():
-        return _target_df(df_raw, "passorfail")
+    @render.ui
+    def preprocess_rules_ui():
+        rules = preprocess_rules_items()
+        cards = [ui.card(ui.card_header(title), ui.p({"class": "mb-0"}, text), class_="mb-2") for (title, text) in rules]
+        return ui.div(*cards)
 
     @output
-    @render.data_frame
-    def clean_target_tbl():
-        return _target_df(df_clean, "passorfail")
-
-    # ----- NA top
-    @output
-    @render.data_frame
-    def raw_na_tbl():
-        return _na_top_df(df_raw, 10)
+    @render.ui
+    def best_model_box():
+        show = best_name if best_name else "-"
+        return ui.value_box("최우수 모델", show, f"검증 {BEST_BY} 기준 선정", theme="primary")
 
     @output
-    @render.data_frame
-    def clean_na_tbl():
-        return _na_top_df(df_clean, 10)
-
-    # ----- head
-    @output
-    @render.data_frame
-    def raw_head_tbl():
-        return df_raw.head(12)
+    @render.ui
+    def valid_f1_box():
+        return ui.value_box("검증 F1 Score", get_metric(best_row, "valid_f1"), "Validation Set", theme="info")
 
     @output
-    @render.data_frame
-    def clean_head_tbl():
-        return df_clean.head(12)
-
-    # ----- Summary tab
-    @output
-    @render.text
-    def summary_txt():
-        _, text = _load_summary()
-        return text
+    @render.ui
+    def test_f1_box():
+        return ui.value_box("테스트 F1 Score", get_metric(best_row, "test_f1"), "Test Set", theme="success")
 
     @output
-    @render.data_frame
-    def summary_tbl():
-        tbl, _ = _load_summary()
-        if tbl is None:
-            return pd.DataFrame([{"metric": "status", "value": "summary json 없음"}])
-        return tbl
+    @render.ui
+    def test_acc_box():
+        return ui.value_box("테스트 정확도", get_metric(best_row, "test_accuracy"), "Test Accuracy", theme="success")
 
     @output
-    @render.data_frame
-    def clean_na_tbl2():
-        return _na_top_df(df_clean, 10)
+    @render.ui
+    def compare_tbl_ui():
+        return compare_table_html(compare_df)
