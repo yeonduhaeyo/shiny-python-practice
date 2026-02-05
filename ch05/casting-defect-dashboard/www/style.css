@@ -1,0 +1,17 @@
+:root{--nav:#2c3e50;--nav2:#233140;--r:14px;--b:rgba(0,0,0,.12);--s2:0 16px 36px rgba(0,0,0,.14)}
+
+/* navbar: 제목(brand) 더 굵게 */
+.navbar .navbar-brand{font-weight:900;letter-spacing:-.2px}
+
+/* card: hover만(기본 테마 유지) */
+.card{border-radius:var(--r);transition:transform .14s,box-shadow .14s}
+.card:hover{transform:translateY(-3px);box-shadow:var(--s2)}
+
+/* card-header: navbar 톤으로 진하게 */
+.card-header{
+  background:linear-gradient(180deg,var(--nav2),var(--nav)) !important;
+  color:#fff !important;
+  font-weight:900;
+  border-bottom:1px solid var(--b);
+}
+.card-header *{color:#fff !important}
