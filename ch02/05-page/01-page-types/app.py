@@ -1,6 +1,6 @@
 from shiny import App, ui
 
-# 1) 모든 page_*에서 공통으로 사용할 콘텐츠 -------------------
+# 1) 모든 page_*에서 공통으로 사용할 콘텐츠
 content = ui.TagList(
     ui.h2("페이지 컨테이너 비교 예제"),
     ui.p(
@@ -21,7 +21,7 @@ content = ui.TagList(
     ),
 )
 
-# 2) 여기에서 page_* 만 바꿔가며 테스트 ----------------------
+# 2) 여기에서 page_* 만 바꿔가며 테스트
 # (1) 기본: page_fluid
 # app_ui = ui.page_fluid(content)
 
@@ -31,7 +31,6 @@ content = ui.TagList(
 # (3) page_fillable 로 바꿔보기
 app_ui = ui.page_fillable(content)
 
-# ------------------------------------------------------------
 def server(input, output, session):
     pass
 

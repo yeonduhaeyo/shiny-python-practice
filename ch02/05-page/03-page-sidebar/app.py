@@ -1,7 +1,8 @@
 from shiny import App, ui, render
 
+# page_sidebar: 앱 전체를 Sidebar(필터) + Main(결과)로 나누는 컨테이너
 app_ui = ui.page_sidebar(
-    # 1) Sidebar 영역 -----------------------------------------
+    # 1) Sidebar 영역
     ui.sidebar(
         ui.h4("필터"),
         ui.input_select(
@@ -12,7 +13,7 @@ app_ui = ui.page_sidebar(
         ),
     ),
 
-    # 2) 메인 영역 ---------------------------------------------
+    # 2) 메인 영역
     ui.card(
         ui.h3("메인 분석 영역"),
         ui.p("선택한 카테고리에 따라 아래 내용이 달라집니다."),

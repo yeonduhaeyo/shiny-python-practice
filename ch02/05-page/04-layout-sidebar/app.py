@@ -1,6 +1,6 @@
 from shiny import App, ui, render
 
-# 1) "대시보드" 탭: layout_sidebar + 리액티브 -------------------
+# 탭 1) 대시보드: 탭 내부에서만 Sidebar + Main 구조 적용(layout_sidebar)
 dashboard_page = ui.nav_panel(
     "대시보드",
     ui.layout_sidebar(
@@ -23,7 +23,7 @@ dashboard_page = ui.nav_panel(
     ),
 )
 
-# 2) "도움말" 탭: Sidebar 없이 단순 카드 ------------------------
+# 탭 2) 도움말: 기본 페이지(사이드바 없음)
 help_page = ui.nav_panel(
     "도움말",
     ui.card(
@@ -32,14 +32,14 @@ help_page = ui.nav_panel(
     ),
 )
 
-# 3) 전체 앱: page_navbar로 탭 구성 ----------------------------
+# 전체 앱: page_navbar로 상위 탭(페이지) 구성
 app_ui = ui.page_navbar(
     dashboard_page,
     help_page,
     title="레이아웃 기초 - layout_sidebar in page_navbar",
 )
 
-# 4) 서버 로직 -------------------------------------------------
+# 서버 로직
 def server(input, output, session):
     # 대시보드 탭: Sidebar 선택에 따라 설명 텍스트 변경
     @render.text

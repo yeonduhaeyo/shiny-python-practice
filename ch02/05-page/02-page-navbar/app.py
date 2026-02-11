@@ -1,5 +1,6 @@
 from shiny import App, ui
 
+# page_navbar: 앱을 탭(페이지) 단위로 분리하는 최상위 컨테이너
 app_ui = ui.page_navbar(
     ui.nav_panel(
         "대시보드",
