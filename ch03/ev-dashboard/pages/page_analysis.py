@@ -19,7 +19,6 @@ def page_analysis_ui():
         "조건별 분석",
         ui.layout_sidebar(
             ui.sidebar(
-                ui.h4("조건 선택"),
                 ui.input_selectize("sido", "시도", choices=["전체"]),
                 ui.input_selectize("sigungu", "시군구", choices=["전체"]),
                 ui.input_selectize("purpose", "용도별", choices=["전체"]),
@@ -33,7 +32,6 @@ def page_analysis_ui():
                 ),
                 ui.input_action_button("apply", "조건 적용", class_="btn-primary", width="100%"),
 
-                # (3-8) 3) CSV 다운로드 버튼 구현
                 ui.download_button(
                     "download_csv",
                     "CSV 다운로드",
@@ -43,7 +41,6 @@ def page_analysis_ui():
 
                 title="입력",
             ),
-            ui.h3("조건별 분석"),
             ui.layout_columns(
                 ui.card(
                     ui.layout_columns(
@@ -131,18 +128,14 @@ def page_analysis_server(input, output, session):
 
         return dat.reset_index(drop=True)
 
-    @output
     @render.text
     def kpi_rows():
         return f"{len(filtered_df()):,}"
 
-    @output
     @render.text
     def kpi_sum_selected():
         return f"{filtered_df()['선택합'].sum():,}"
 
-    # (3-8) 1) Plotly 막대그래프 Server 출력 추가
-    @output
     @render_widget
     def p_type_bar():
         dat = filtered_df()
@@ -161,8 +154,6 @@ def page_analysis_server(input, output, session):
         fig.update_layout(margin=dict(l=10, r=10, t=50, b=10), showlegend=False)
         return fig
 
-    # (3-8) 2) DataGrid Server 출력 추가(렌더링만)
-    @output
     @render.data_frame
     def tbl_filtered():
         return render.DataGrid(
@@ -172,8 +163,6 @@ def page_analysis_server(input, output, session):
             filters=True,
         )
 
-    # (3-8) 3) CSV 다운로드 Server 구현
-    @output(id="download_csv")
     @render.download(
         filename=lambda: f"filtered_{date.today().isoformat()}.csv",
         encoding="utf-8-sig",
