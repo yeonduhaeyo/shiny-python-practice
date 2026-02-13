@@ -9,7 +9,7 @@ app_ui = ui.page_fluid(
 
 # 2) 서버 로직 정의
 def server(input, output, session):
-    @output
+    
     @render.text
     def greeting():
         return f"안녕하세요, {input.name()} 님!"
