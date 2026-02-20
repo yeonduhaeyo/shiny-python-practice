@@ -150,57 +150,47 @@ def page_process_ui():
 @module.server
 def page_process_server(input, output, session):
 
-    @output
     @render.data_frame
     def dict_molten():
         df = build_dict_df("① 용탕 준비 및 가열")
         return render.DataGrid(df, width="100%", height=260, summary=False, filters=False, selection_mode="none")
 
-    @output
     @render_widget
     def plot_molten():
         return plot_distribution_plotly(df_raw, input.molten())
 
-    @output
     @render.data_frame
     def dict_slurry():
         df = build_dict_df("② 반고체 슬러리 제조")
         return render.DataGrid(df, width="100%", height=260, summary=False, filters=False, selection_mode="none")
 
-    @output
     @render_widget
     def plot_slurry():
         return plot_distribution_plotly(df_raw, input.slurry())
 
-    @output
     @render.data_frame
     def dict_inject():
         df = build_dict_df("③ 사출 & 금형 충전")
         return render.DataGrid(df, width="100%", height=260, summary=False, filters=False, selection_mode="none")
 
-    @output
     @render_widget
     def plot_inject():
         return plot_distribution_plotly(df_raw, input.inject())
 
-    @output
     @render.data_frame
     def dict_solid():
         df = build_dict_df("④ 응고 · 냉각")
         return render.DataGrid(df, width="100%", height=260, summary=False, filters=False, selection_mode="none")
 
-    @output
     @render_widget
     def plot_solid():
         return plot_distribution_plotly(df_raw, input.solid())
 
-    @output
     @render.data_frame
     def dict_etc():
         df = build_dict_df("⑤ 기타")
         return render.DataGrid(df, width="100%", height=260, summary=False, filters=False, selection_mode="none")
 
-    @output
     @render_widget
     def plot_etc():
         return plot_distribution_plotly(df_raw, input.etc())

@@ -150,7 +150,6 @@ def page_appendix_server(input, output, session):
     best_row = best_row_from_compare(compare_df, best_name)
 
     # outputs
-    @output
     @render.ui
     def before_after_ui():
         if not preprocess_summary:
@@ -178,35 +177,29 @@ def page_appendix_server(input, output, session):
             col_widths=[4, 4, 4],
         )
 
-    @output
     @render.ui
     def preprocess_rules_ui():
         rules = preprocess_rules_items()
         cards = [ui.card(ui.card_header(title), ui.p({"class": "mb-0"}, text), class_="mb-2") for (title, text) in rules]
         return ui.div(*cards)
 
-    @output
     @render.ui
     def best_model_box():
         show = best_name if best_name else "-"
         return ui.value_box("최우수 모델", show, f"검증 {BEST_BY} 기준 선정", theme="primary")
 
-    @output
     @render.ui
     def valid_f1_box():
         return ui.value_box("검증 F1 Score", get_metric(best_row, "valid_f1"), "Validation Set", theme="info")
 
-    @output
     @render.ui
     def test_f1_box():
         return ui.value_box("테스트 F1 Score", get_metric(best_row, "test_f1"), "Test Set", theme="success")
 
-    @output
     @render.ui
     def test_acc_box():
         return ui.value_box("테스트 정확도", get_metric(best_row, "test_accuracy"), "Test Accuracy", theme="success")
 
-    @output
     @render.ui
     def compare_tbl_ui():
         return compare_table_html(compare_df)

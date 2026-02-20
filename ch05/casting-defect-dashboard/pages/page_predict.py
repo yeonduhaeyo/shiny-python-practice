@@ -188,7 +188,6 @@ def page_predict_server(input, output, session):
     pred_state = reactive.Value(None)
     proba_state = reactive.Value(None)
 
-    @output
     @render.ui
     def input_summary_default():
         if input.btn_predict() == 0:
@@ -223,7 +222,6 @@ def page_predict_server(input, output, session):
             pred_state.set(None)
             proba_state.set(None)
 
-    @output
     @render.ui
     def pred_result():
         if input.btn_predict() == 0:
@@ -248,7 +246,6 @@ def page_predict_server(input, output, session):
 
         return ui.value_box("예측 결과", "✖  FAIL", f"불량 확률: {proba:.2%}", theme="danger")
 
-    @output
     @render.data_frame
     @reactive.event(input.btn_predict)
     def input_summary_grid():
