@@ -13,3 +13,10 @@ NURSERY_CLEAN = processed_dir / "nursery_clean.csv"
 
 gdf_sigungu = gpd.read_file(SIGUNGU_GEOJSON)
 df = pd.read_csv(NURSERY_CLEAN, encoding="utf-8-sig")
+
+# shared.py (추가)
+try:
+    from data.config_api import KAKAO_JAVASCRIPT_KEY
+    KAKAO_APP_KEY = str(KAKAO_JAVASCRIPT_KEY).strip()
+except Exception:
+    KAKAO_APP_KEY = ""
